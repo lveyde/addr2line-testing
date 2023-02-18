@@ -137,12 +137,14 @@ func main() {
 
 	file, err := os.Create("addr2line_Symbols.txt")
 	defer file.Close()
+	for _, symbol := range symbols {
+		file.Write([]byte(fmt.Sprintf("%s : %s\n", symbol.symbolAddress, symbol.symbolName)))
+	}
+	file.Sync()
 
 	for _, symbol := range symbols {
 		wl = &Workload{Addr2ln_name: symbol.symbolName, Addr2ln_offset: symbol.symbolAddress}
-		file.Write([]byte(fmt.Sprintf("%s : %s\n", symbol.symbolAddress, symbol.symbolName)))
 		pushIntoQueue(context, wl)
 	}
-	file.Sync()
 
 }
