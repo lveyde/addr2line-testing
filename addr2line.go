@@ -11,6 +11,8 @@ import (
 	"sync"
 )
 
+var wg sync.WaitGroup
+
 // Sql connection configuration
 type Connect_token struct {
 	DBDriver string
@@ -19,12 +21,12 @@ type Connect_token struct {
 
 // Connects the target db and returns the handle
 func Connect_db(t *Connect_token) *sql.DB {
-	fmt.Println("connect")
+	//fmt.Println("connect")
 	db, err := sql.Open((*t).DBDriver, (*t).DBDSN)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("connected")
+	//fmt.Println("connected")
 	return db
 }
 
@@ -35,7 +37,7 @@ type Symbols struct {
 
 func getSymbols(context *Context, instanceID string) ([]Symbols, error) {
 	query := fmt.Sprintf("SELECT symbol_name, symbol_address FROM symbols WHERE symbol_instance_id_ref = %s", instanceID)
-	fmt.Println("Running query", query)
+	//fmt.Println("Running query", query)
 	rows, err := (*context).DB.Query(query)
 	if err != nil {
 		return nil, err
@@ -70,6 +72,7 @@ type Context struct {
 type Workload struct {
 	Addr2ln_offset string
 	Addr2ln_name   string
+	Terminate      bool
 }
 
 func A2L_resolver__init(fn string, DB_inst *sql.DB, includeInline bool) *Context {
@@ -87,23 +90,28 @@ func A2L_resolver__init(fn string, DB_inst *sql.DB, includeInline bool) *Context
 
 func workload(context *Context, includeInline bool) {
 	var e Workload
+	wg.Add(1)
 
 	for {
 		e = <-context.ch_workload
-		context.mu.Lock()
-		rs, err := context.a2l.ResolveString(e.Addr2ln_offset)
-		context.mu.Unlock()
-
-		if err == nil {
-			fmt.Println(e.Addr2ln_offset, ":", rs[0].Function, "@", rs[0].File, rs[0].Line)
-
-			if includeInline {
-				for _, a := range rs[1:] {
-					fmt.Println(e.Addr2ln_offset, ":", "Inlined by", a.Function, "@", a.File, a.Line)
-				}
-			}
+		if e.Terminate == true {
+			wg.Done()
 		} else {
-			fmt.Println("Error resolving address", e.Addr2ln_offset)
+			context.mu.Lock()
+			rs, err := context.a2l.ResolveString(e.Addr2ln_offset)
+			context.mu.Unlock()
+
+			if err == nil {
+				fmt.Println(e.Addr2ln_offset, ":", rs[0].Function, "@", rs[0].File, rs[0].Line)
+
+				if includeInline {
+					for _, a := range rs[1:] {
+						fmt.Println(e.Addr2ln_offset, ":", "Inlined by", a.Function, "@", a.File, a.Line)
+					}
+				}
+			} else {
+				fmt.Println("Error resolving address", e.Addr2ln_offset)
+			}
 		}
 	}
 }
@@ -133,7 +141,7 @@ func main() {
 	if err != nil {
 		fmt.Errorf(err.Error())
 	}
-	fmt.Println("Size of symbols:", len(symbols))
+	//fmt.Println("Size of symbols:", len(symbols))
 
 	file, err := os.Create("addr2line_Symbols.txt")
 	defer file.Close()
@@ -143,8 +151,11 @@ func main() {
 	file.Sync()
 
 	for _, symbol := range symbols {
-		wl = &Workload{Addr2ln_name: symbol.symbolName, Addr2ln_offset: symbol.symbolAddress}
+		wl = &Workload{Addr2ln_name: symbol.symbolName, Addr2ln_offset: symbol.symbolAddress, Terminate: false}
 		pushIntoQueue(context, wl)
 	}
 
+	wl = &Workload{Addr2ln_name: "", Addr2ln_offset: "", Terminate: true}
+	pushIntoQueue(context, wl)
+	wg.Wait()
 }
