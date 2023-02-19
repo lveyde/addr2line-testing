@@ -94,7 +94,7 @@ func workload(context *Context, includeInline bool) {
 
 	for {
 		e = <-context.ch_workload
-		if e.Terminate == true {
+		if e.Terminate {
 			wg.Done()
 		} else {
 			context.mu.Lock()
@@ -110,7 +110,7 @@ func workload(context *Context, includeInline bool) {
 					}
 				}
 			} else {
-				fmt.Println("Error resolving address", e.Addr2ln_offset)
+				fmt.Println("Error resolving address", e.Addr2ln_offset, err.Error())
 			}
 		}
 	}
@@ -139,16 +139,25 @@ func main() {
 
 	symbols, err := getSymbols(context, instanceID)
 	if err != nil {
-		fmt.Errorf(err.Error())
+		fmt.Fprintln(os.Stderr, err.Error())
 	}
 	//fmt.Println("Size of symbols:", len(symbols))
 
 	file, err := os.Create("addr2line_Symbols.txt")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+	}
 	defer file.Close()
 	for _, symbol := range symbols {
-		file.Write([]byte(fmt.Sprintf("%s : %s\n", symbol.symbolAddress, symbol.symbolName)))
+		_, err = file.Write([]byte(fmt.Sprintf("%s : %s\n", symbol.symbolAddress, symbol.symbolName)))
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+		}
 	}
-	file.Sync()
+	err = file.Sync()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+	}
 
 	for _, symbol := range symbols {
 		wl = &Workload{Addr2ln_name: symbol.symbolName, Addr2ln_offset: symbol.symbolAddress, Terminate: false}
