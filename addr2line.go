@@ -11,7 +11,10 @@ import (
 	"sync"
 )
 
-var wg sync.WaitGroup
+var (
+	wg          sync.WaitGroup
+	maxRequests uint = 1000
+)
 
 // Sql connection configuration
 type Connect_token struct {
@@ -90,6 +93,7 @@ func A2L_resolver__init(fn string, DB_inst *sql.DB, includeInline bool) *Context
 
 func workload(context *Context, includeInline bool) {
 	var e Workload
+	var counter uint = 0
 	wg.Add(1)
 
 	for {
@@ -97,7 +101,19 @@ func workload(context *Context, includeInline bool) {
 		if e.Terminate {
 			wg.Done()
 		} else {
+			counter += 1
 			context.mu.Lock()
+			if counter%maxRequests == 0 {
+				err := context.a2l.Close()
+				if err != nil {
+					panic(err)
+				}
+				a, err := addr2line.New("vmlinux")
+				if err != nil {
+					panic(err)
+				}
+				context.a2l = a
+			}
 			rs, err := context.a2l.ResolveString(e.Addr2ln_offset)
 			context.mu.Unlock()
 
@@ -110,7 +126,7 @@ func workload(context *Context, includeInline bool) {
 					}
 				}
 			} else {
-				fmt.Println("Error resolving address", e.Addr2ln_offset, err.Error())
+				fmt.Println(e.Addr2ln_offset, ":", e.Addr2ln_name, "Error resolving address", err.Error())
 			}
 		}
 	}
