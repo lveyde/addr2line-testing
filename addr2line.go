@@ -8,12 +8,13 @@ import (
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"os"
+	"strconv"
 	"sync"
 )
 
 var (
 	wg          sync.WaitGroup
-	maxRequests uint = 3000
+	maxRequests uint64 = 3000
 )
 
 // Sql connection configuration
@@ -93,7 +94,7 @@ func A2L_resolver__init(fn string, DB_inst *sql.DB, includeInline bool) *Context
 
 func workload(context *Context, includeInline bool) {
 	var e Workload
-	var counter uint = 0
+	var counter uint64 = 0
 	wg.Add(1)
 
 	for {
@@ -142,12 +143,24 @@ func main() {
 	var dbDriver, dbDSN, instanceID string
 	includeInline := false
 
+	if len(os.Args) < 4 {
+		fmt.Printf("%s <DB Driver> <DB DSN> [Include Inlines (true|false)] [Max Requests per addr2line process]", os.Args[0])
+		return
+	}
+
 	dbDriver = os.Args[1]
 	dbDSN = os.Args[2]
 	instanceID = os.Args[3]
 
-	if os.Args[4] == "true" {
+	if len(os.Args) >= 5 && os.Args[4] == "true" {
 		includeInline = true
+	}
+
+	if len(os.Args) >= 6 {
+		max, err := strconv.ParseUint(os.Args[5], 0, 64)
+		if err == nil {
+			maxRequests = max
+		}
 	}
 
 	t := Connect_token{dbDriver, dbDSN}
