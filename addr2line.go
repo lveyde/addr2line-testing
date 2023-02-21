@@ -102,7 +102,6 @@ func workload(context *Context, includeInline bool) {
 		if e.Terminate {
 			wg.Done()
 		} else {
-			counter += 1
 			context.mu.Lock()
 			if counter%maxRequests == 0 {
 				err := context.a2l.Close()
@@ -115,6 +114,8 @@ func workload(context *Context, includeInline bool) {
 				}
 				context.a2l = a
 			}
+
+			counter += 1
 			rs, err := context.a2l.ResolveString(e.Addr2ln_offset)
 			context.mu.Unlock()
 
