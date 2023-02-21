@@ -1,4 +1,4 @@
-module main
+module addr2line-testing
 
 go 1.18
 
