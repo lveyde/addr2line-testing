@@ -144,7 +144,7 @@ func main() {
 	includeInline := false
 
 	if len(os.Args) < 4 {
-		fmt.Printf("%s <DB Driver> <DB DSN> [Include Inlines (true|false)] [Max Requests per addr2line process]", os.Args[0])
+		fmt.Printf("Usage: %s <DB Driver> <DB DSN> <InstanceID> [Include Inlines (true|false)] [Max Requests per addr2line process]\n", os.Args[0])
 		return
 	}
 
