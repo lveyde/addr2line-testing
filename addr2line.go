@@ -14,7 +14,7 @@ import (
 
 var (
 	wg          sync.WaitGroup
-	maxRequests uint64 = 3000
+	maxRequests uint64 = 1300
 )
 
 // Sql connection configuration
